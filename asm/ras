@@ -1,0 +1,29 @@
+#!/usr/bin/sbcl --script
+;; -*- mode: Lisp -*-
+
+(require :asdf)
+(asdf:load-systems :retrokitchen :iterate)
+(defpackage :script-env
+  (:use :common-lisp
+        :iterate
+        :retrokitchen-asm))
+(in-package :script-env)
+
+(defun read-code (is)
+  (iter (for x next (read is nil nil))
+        (while x)
+        (collect x)))
+
+(unless (= (length sb-ext:*posix-argv*) 4)
+  (format *error-output* "usage: ras <input> <output> <offset>~%")
+  (sb-ext:exit))
+
+(destructuring-bind (_ in out offset) sb-ext:*posix-argv*
+  (handler-case
+      (with-open-file (is in :direction :input)
+	(with-open-file (os out :direction :output
+                            :element-type 'unsigned-byte
+			    :if-exists :supersede)
+	  (assemble os (read-from-string  offset) (read-code is))))
+    (file-error (f) (format *error-output* "~a~%" f))
+    (simple-error (s) (format *error-output* "~a~%" s))))
